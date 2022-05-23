@@ -12,6 +12,7 @@ class Data:
         self.l1 = 0.15
         self.l2 = 0.3
         self.l3 = 0.2
+        self.thetaInc = 3.0
         self.theta0 = 2.0
         self.theta1e = .0
         self.theta2e = .0
@@ -56,7 +57,7 @@ class Data:
         self.h12 = 0.055
         self.h13 = 0.03
         self.h14 = 0.02
-        self.h15 = 0.03
+        self.h15 = 0.05
         self.h16 = 0.06
         self.h17 = 0.1
         self.h18 = 0.1
@@ -111,8 +112,9 @@ class Data:
         self.theta9 = .0
         self.theta10 = .0
         self.tailShape = '4' # 1 = square; 2 = v; 3 = pointed; 4 = rounded
+        self.tailAirfoil = None
 
-        # Tail
+        # Head
         self.h22 = 0.08
         self.h23 = 0.015
         self.h24 = 0.05
@@ -1157,3 +1159,15 @@ class Data:
     @theta10.setter
     def theta10(self, value: float) -> None:
         if 0 <= value < 60: self.__theta10 = value
+    
+    #-------------------------------------#
+    @property
+    def tailAirfoil(self) -> Curve:
+        return self.__tailAirfoil
+    
+    @tailAirfoil.setter
+    def tailAirfoil(self, value: Curve) -> None:
+        if value is not None and value.shape[1] == 2 and value.shape[0] >= 5:
+            self.__tailAirfoil = value
+        else:
+            self.__tailAirfoil = None

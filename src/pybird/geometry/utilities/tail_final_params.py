@@ -1,4 +1,5 @@
-from numpy import array, zeros
+from math import atan, cos
+from numpy import argmin, array, flip, zeros
 
 from pybird.geometry.utilities.body_final_params import BodyFinalParams
 from pybird.geometry.utilities.data import Data
@@ -34,6 +35,13 @@ class TailFinalParams:
         self.calcCurve36d()
         self.calcCurve37()
         self.calcCurve38()
+
+        self.calcV5Index()
+        self.calcV6V7Index()
+        self.calcTailFirstProfileE()
+        self.calcTailSecondProfileE()
+        self.calcTailFirstProfileD()
+        self.calcTailSecondProfileD()
     
     #########################################################
     # Quaternions
@@ -311,3 +319,381 @@ class TailFinalParams:
         n = 50
         out = curve.bezier([self.__body.p15, self.c35, self.p20], n=n)
         self.curve38 = out
+    
+    #-------------------------------------#
+    @property
+    def v5e(self) -> Curve:
+        return self.__v5e
+    
+    @v5e.setter
+    def v5e(self, value: Curve) -> None:
+        self.__v5e = value
+    
+    @property
+    def v5d(self) -> Curve:
+        return self.__v5d
+    
+    @v5d.setter
+    def v5d(self, value: Curve) -> None:
+        self.__v5d = value
+    
+    @property
+    def v5eIndex(self) -> Curve:
+        return self.__v5eIndex
+    
+    @v5eIndex.setter
+    def v5eIndex(self, value: Curve) -> None:
+        self.__v5eIndex = value
+    
+    @property
+    def v5dIndex(self) -> Curve:
+        return self.__v5dIndex
+    
+    @v5dIndex.setter
+    def v5dIndex(self, value: Curve) -> None:
+        self.__v5dIndex = value
+    
+    def calcV5Index(self) -> None:
+
+        theta = atan(2 * self.__data.h21 / self.__data.h19)
+        delta = self.__data.h11 / cos(theta)
+
+        curve = flip(self.curve36e, 0)
+        for i in range(len(curve[:, 0])):
+            norm = vector.norm(self.p20 - curve[i, :])
+            if norm > delta:
+                self.v5eIndex = len(curve[:, 0]) - 1 - i
+                break
+        
+        self.v5e = self.curve36e[self.v5eIndex, :]
+
+        curve = flip(self.curve36d, 0)
+        for i in range(len(curve[:, 0])):
+            norm = vector.norm(self.p20 - curve[i, :])
+            if norm > delta:
+                self.v5dIndex = len(curve[:, 0]) - 1 - i
+                break
+        
+        self.v5d = self.curve36d[self.v5dIndex, :]
+    
+    #-------------------------------------#
+    @property
+    def v6e(self) -> Curve:
+        return self.__v6e
+    
+    @v6e.setter
+    def v6e(self, value: Curve) -> None:
+        self.__v6e = value
+    
+    @property
+    def v7e(self) -> Curve:
+        return self.__v7e
+    
+    @v7e.setter
+    def v7e(self, value: Curve) -> None:
+        self.__v7e = value
+    
+    @property
+    def v6d(self) -> Curve:
+        return self.__v6d
+    
+    @v6d.setter
+    def v6d(self, value: Curve) -> None:
+        self.__v6d = value
+    
+    @property
+    def v7d(self) -> Curve:
+        return self.__v7d
+    
+    @v7d.setter
+    def v7d(self, value: Curve) -> None:
+        self.__v7d = value
+    
+    @property
+    def v6eIndex(self) -> Curve:
+        return self.__v6eIndex
+    
+    @v6eIndex.setter
+    def v6eIndex(self, value: Curve) -> None:
+        self.__v6eIndex = value
+    
+    @property
+    def v6dIndex(self) -> Curve:
+        return self.__v6dIndex
+    
+    @v6dIndex.setter
+    def v6dIndex(self, value: Curve) -> None:
+        self.__v6dIndex = value
+    
+    @property
+    def v7eIndex(self) -> Curve:
+        return self.__v7eIndex
+    
+    @v7eIndex.setter
+    def v7eIndex(self, value: Curve) -> None:
+        self.__v7eIndex = value
+    
+    @property
+    def v7dIndex(self) -> Curve:
+        return self.__v7dIndex
+    
+    @v7dIndex.setter
+    def v7dIndex(self, value: Curve) -> None:
+        self.__v7dIndex = value
+    
+    def calcV6V7Index(self) -> None:
+
+        dist = vector.norm(self.p20 - self.p19e)
+        delta = 0.05 * dist
+
+        size = len(self.curve36e[:, 0])
+        for i in range(size):
+            norm = vector.norm(self.p19e - self.curve36e[i, :])
+            if norm > delta:
+                self.v6eIndex = i
+                break
+        
+        self.v6e = self.curve36e[self.v6eIndex, :]
+        
+        size = len(self.curve35e[:, 0])
+        for i in range(size):
+            norm = vector.norm(self.p19e - self.curve35e[size - 1 - i, :])
+            if norm > delta:
+                self.v7eIndex = size - 1 - i
+                break
+        
+        self.v7e = self.curve35e[self.v7eIndex, :]
+        
+        size = len(self.curve36d[:, 0])
+        for i in range(size):
+            norm = vector.norm(self.p19d - self.curve36d[i, :])
+            if norm > delta:
+                self.v6dIndex = i
+                break
+        
+        self.v6d = self.curve36d[self.v6dIndex, :]
+        
+        size = len(self.curve35d[:, 0])
+        for i in range(size):
+            norm = vector.norm(self.p19d - self.curve35d[size - 1 - i, :])
+            if norm > delta:
+                self.v7dIndex = size - 1 - i
+                break
+        
+        self.v7d = self.curve35d[self.v7dIndex, :]
+    
+    #-------------------------------------#
+    @property
+    def curve39e(self) -> Curve:
+        return self.__curve39e
+    
+    @curve39e.setter
+    def curve39e(self, value: Curve) -> None:
+        self.__curve39e = value
+    
+    @property
+    def curve40e(self) -> Curve:
+        return self.__curve40e
+    
+    @curve40e.setter
+    def curve40e(self, value: Curve) -> None:
+        self.__curve40e = value
+    
+    def calcTailFirstProfileE(self) -> None:
+        
+        if self.__data.tailAirfoil is not None:
+
+            # Top and bottom curve
+            i_max = argmin(self.__data.tailAirfoil[:, 0])
+            top = self.__data.tailAirfoil[:i_max + 1, :]
+            bottom = self.__data.tailAirfoil[i_max:, :]
+
+            top = flip(top, 0)
+
+            # Section vectors
+            x = self.v5e - self.__body.p10e
+            z = self.z4 * vector.norm(x)
+
+            # Create curves
+            topFoil = zeros((len(top[:, 0]), 3))
+            bottomFoil = zeros((len(bottom[:, 0]), 3))
+
+            # Fill top curve
+            topFoil[:, 0] = top[:, 0] * x[0] + top[:, 1] * z[0] + self.__body.p10e[0]
+            topFoil[:, 1] = top[:, 0] * x[1] + top[:, 1] * z[1] + self.__body.p10e[1]
+            topFoil[:, 2] = top[:, 0] * x[2] + top[:, 1] * z[2] + self.__body.p10e[2]
+
+            # Fill bottom curve
+            bottomFoil[:, 0] = bottom[:, 0] * x[0] + bottom[:, 1] * z[0] + self.__body.p10e[0]
+            bottomFoil[:, 1] = bottom[:, 0] * x[1] + bottom[:, 1] * z[1] + self.__body.p10e[1]
+            bottomFoil[:, 2] = bottom[:, 0] * x[2] + bottom[:, 1] * z[2] + self.__body.p10e[2]
+
+            self.curve39e = topFoil
+            self.curve40e = bottomFoil
+        
+        else:
+
+            self.curve39e = zeros((1, 3))
+            self.curve40e = zeros((1, 3))
+    
+    #-------------------------------------#
+    @property
+    def curve41e(self) -> Curve:
+        return self.__curve41e
+    
+    @curve41e.setter
+    def curve41e(self, value: Curve) -> None:
+        self.__curve41e = value
+    
+    @property
+    def curve42e(self) -> Curve:
+        return self.__curve42e
+    
+    @curve42e.setter
+    def curve42e(self, value: Curve) -> None:
+        self.__curve42e = value
+    
+    def calcTailSecondProfileE(self) -> None:
+        
+        if self.__data.tailAirfoil is not None:
+
+            # Top and bottom curve
+            i_max = argmin(self.__data.tailAirfoil[:, 0])
+            top = self.__data.tailAirfoil[:i_max + 1, :]
+            bottom = self.__data.tailAirfoil[i_max:, :]
+
+            top = flip(top, 0)
+
+            # Section vectors
+            x = self.v6e - self.v7e
+            z = self.z4 * vector.norm(x)
+
+            # Create curves
+            topFoil = zeros((len(top[:, 0]), 3))
+            bottomFoil = zeros((len(bottom[:, 0]), 3))
+
+            # Fill top curve
+            topFoil[:, 0] = top[:, 0] * x[0] + top[:, 1] * z[0] + self.v7e[0]
+            topFoil[:, 1] = top[:, 0] * x[1] + top[:, 1] * z[1] + self.v7e[1]
+            topFoil[:, 2] = top[:, 0] * x[2] + top[:, 1] * z[2] + self.v7e[2]
+
+            # Fill bottom curve
+            bottomFoil[:, 0] = bottom[:, 0] * x[0] + bottom[:, 1] * z[0] + self.v7e[0]
+            bottomFoil[:, 1] = bottom[:, 0] * x[1] + bottom[:, 1] * z[1] + self.v7e[1]
+            bottomFoil[:, 2] = bottom[:, 0] * x[2] + bottom[:, 1] * z[2] + self.v7e[2]
+
+            self.curve41e = topFoil
+            self.curve42e = bottomFoil
+        
+        else:
+
+            self.curve41e = zeros((1, 3))
+            self.curve42e = zeros((1, 3))
+    
+    #-------------------------------------#
+    @property
+    def curve39d(self) -> Curve:
+        return self.__curve39d
+    
+    @curve39d.setter
+    def curve39d(self, value: Curve) -> None:
+        self.__curve39d = value
+    
+    @property
+    def curve40d(self) -> Curve:
+        return self.__curve40d
+    
+    @curve40d.setter
+    def curve40d(self, value: Curve) -> None:
+        self.__curve40d = value
+    
+    def calcTailFirstProfileD(self) -> None:
+        
+        if self.__data.tailAirfoil is not None:
+
+            # Top and bottom curve
+            i_max = argmin(self.__data.tailAirfoil[:, 0])
+            top = self.__data.tailAirfoil[:i_max + 1, :]
+            bottom = self.__data.tailAirfoil[i_max:, :]
+
+            top = flip(top, 0)
+
+            # Section vectors
+            x = self.v5d - self.__body.p10d
+            z = self.z4 * vector.norm(x)
+
+            # Create curves
+            topFoil = zeros((len(top[:, 0]), 3))
+            bottomFoil = zeros((len(bottom[:, 0]), 3))
+
+            # Fill top curve
+            topFoil[:, 0] = top[:, 0] * x[0] + top[:, 1] * z[0] + self.__body.p10d[0]
+            topFoil[:, 1] = top[:, 0] * x[1] + top[:, 1] * z[1] + self.__body.p10d[1]
+            topFoil[:, 2] = top[:, 0] * x[2] + top[:, 1] * z[2] + self.__body.p10d[2]
+
+            # Fill bottom curve
+            bottomFoil[:, 0] = bottom[:, 0] * x[0] + bottom[:, 1] * z[0] + self.__body.p10d[0]
+            bottomFoil[:, 1] = bottom[:, 0] * x[1] + bottom[:, 1] * z[1] + self.__body.p10d[1]
+            bottomFoil[:, 2] = bottom[:, 0] * x[2] + bottom[:, 1] * z[2] + self.__body.p10d[2]
+
+            self.curve39d = topFoil
+            self.curve40d = bottomFoil
+        
+        else:
+
+            self.curve39d = zeros((1, 3))
+            self.curve40d = zeros((1, 3))
+    
+    #-------------------------------------#
+    @property
+    def curve41d(self) -> Curve:
+        return self.__curve41d
+    
+    @curve41d.setter
+    def curve41d(self, value: Curve) -> None:
+        self.__curve41d = value
+    
+    @property
+    def curve42d(self) -> Curve:
+        return self.__curve42d
+    
+    @curve42d.setter
+    def curve42d(self, value: Curve) -> None:
+        self.__curve42d = value
+    
+    def calcTailSecondProfileD(self) -> None:
+        
+        if self.__data.tailAirfoil is not None:
+
+            # Top and bottom curve
+            i_max = argmin(self.__data.tailAirfoil[:, 0])
+            top = self.__data.tailAirfoil[:i_max + 1, :]
+            bottom = self.__data.tailAirfoil[i_max:, :]
+
+            top = flip(top, 0)
+
+            # Section vectors
+            x = self.v6d - self.v7d
+            z = self.z4 * vector.norm(x)
+
+            # Create curves
+            topFoil = zeros((len(top[:, 0]), 3))
+            bottomFoil = zeros((len(bottom[:, 0]), 3))
+
+            # Fill top curve
+            topFoil[:, 0] = top[:, 0] * x[0] + top[:, 1] * z[0] + self.v7d[0]
+            topFoil[:, 1] = top[:, 0] * x[1] + top[:, 1] * z[1] + self.v7d[1]
+            topFoil[:, 2] = top[:, 0] * x[2] + top[:, 1] * z[2] + self.v7d[2]
+
+            # Fill bottom curve
+            bottomFoil[:, 0] = bottom[:, 0] * x[0] + bottom[:, 1] * z[0] + self.v7d[0]
+            bottomFoil[:, 1] = bottom[:, 0] * x[1] + bottom[:, 1] * z[1] + self.v7d[1]
+            bottomFoil[:, 2] = bottom[:, 0] * x[2] + bottom[:, 1] * z[2] + self.v7d[2]
+
+            self.curve41d = topFoil
+            self.curve42d = bottomFoil
+        
+        else:
+
+            self.curve41d = zeros((1, 3))
+            self.curve42d = zeros((1, 3))

@@ -3,11 +3,14 @@ import gmsh
 from numpy import asarray
 
 from pybird.geometry.main import Geometry
+from pybird.helpers import vector
 
 def build_mesh(geo: Geometry, size: float, refinement_ratio: float = 0.5) -> None:
     
     gmsh.initialize(sys.argv)
     gmsh.model.add("model")
+
+    gmsh.option.setNumber("Mesh.Algorithm", 5)
 
     # Mesh size
     lc = size
@@ -243,7 +246,7 @@ def build_mesh(geo: Geometry, size: float, refinement_ratio: float = 0.5) -> Non
     curve4e = gmsh.model.geo.addPolyline([v1e] + asarray(points4e)[geo.wing_params.v1eIndex:].tolist() + [p6e])
     curve5e = gmsh.model.geo.addPolyline([p6e] + asarray(points5e)[:geo.wing_params.v2eIndex - 1].tolist() + [v2e])
     curve6e = gmsh.model.geo.addPolyline([v2e] + asarray(points5e)[geo.wing_params.v2eIndex:geo.wing_params.v3eIndex - 1].tolist() + [v3e])
-    curve7e = gmsh.model.geo.addPolyline([v3e] + asarray(points5e)[geo.wing_params.v3eIndex:].tolist() + [p7e] + asarray(points6e)[:geo.wing_params.v4eIndex - 1].tolist() + [v4e])
+    curve7e = gmsh.model.geo.addBezier([v3e, p7e, v4e]) # gmsh.model.geo.addPolyline([v3e] + asarray(points5e)[geo.wing_params.v3eIndex:].tolist() + [p7e] + asarray(points6e)[:geo.wing_params.v4eIndex - 1].tolist() + [v4e])
     curve8e = gmsh.model.geo.addPolyline([v4e] + asarray(points6e)[geo.wing_params.v4eIndex:].tolist() + [p8e])
     curve9e = gmsh.model.geo.addPolyline([p1e] + points7e + [p8e])
     curve10e = gmsh.model.geo.addPolyline([p1e] + points8e + [p8e])
@@ -260,7 +263,7 @@ def build_mesh(geo: Geometry, size: float, refinement_ratio: float = 0.5) -> Non
     curve4d = gmsh.model.geo.addPolyline([v1d] + asarray(points4d)[geo.wing_params.v1dIndex:].tolist() + [p6d])
     curve5d = gmsh.model.geo.addPolyline([p6d] + asarray(points5d)[:geo.wing_params.v2dIndex - 1].tolist() + [v2d])
     curve6d = gmsh.model.geo.addPolyline([v2d] + asarray(points5d)[geo.wing_params.v2dIndex:geo.wing_params.v3eIndex - 1].tolist() + [v3d])
-    curve7d = gmsh.model.geo.addPolyline([v3d] + asarray(points5d)[geo.wing_params.v3dIndex:].tolist() + [p7d] + asarray(points6d)[:geo.wing_params.v4dIndex - 1].tolist() + [v4d])
+    curve7d = gmsh.model.geo.addBezier([v3d, p7d, v4d]) # gmsh.model.geo.addPolyline([v3d] + asarray(points5d)[geo.wing_params.v3dIndex:].tolist() + [p7d] + asarray(points6d)[:geo.wing_params.v4dIndex - 1].tolist() + [v4d])
     curve8d = gmsh.model.geo.addPolyline([v4d] + asarray(points6d)[geo.wing_params.v4dIndex:].tolist() + [p8d])
     curve9d = gmsh.model.geo.addPolyline([p1d] + points7d + [p8d])
     curve10d = gmsh.model.geo.addPolyline([p1d] + points8d + [p8d])
@@ -292,6 +295,28 @@ def build_mesh(geo: Geometry, size: float, refinement_ratio: float = 0.5) -> Non
 
     # Define surfaces
     surface1e = gmsh.model.geo.addSurfaceFilling([curveLoop1e])
+
+    # Refinement
+    root_chord = vector.norm(geo.wing_params.p1e - geo.wing_params.p8e)
+
+    gmsh.model.mesh.field.add("Distance", 1); gmsh.model.mesh.field.setNumbers(1, "CurvesList", [curve1e]); gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
+    gmsh.model.mesh.field.add("Threshold", 2); gmsh.model.mesh.field.setNumber(2, "InField", 1); gmsh.model.mesh.field.setNumber(2, "SizeMin", lc * refinement_ratio); gmsh.model.mesh.field.setNumber(2, "SizeMax", lc); gmsh.model.mesh.field.setNumber(2, "DistMin", root_chord * 0.1); gmsh.model.mesh.field.setNumber(2, "DistMax", root_chord * 0.2)
+
+    # gmsh.model.mesh.field.add("Distance", 3); gmsh.model.mesh.field.setNumbers(3, "CurvesList", [curve2e]); gmsh.model.mesh.field.setNumber(3, "Sampling", 100)
+    # gmsh.model.mesh.field.add("Threshold", 4); gmsh.model.mesh.field.setNumber(4, "InField", 3); gmsh.model.mesh.field.setNumber(4, "SizeMin", lc * refinement_ratio); gmsh.model.mesh.field.setNumber(4, "SizeMax", lc); gmsh.model.mesh.field.setNumber(4, "DistMin", root_chord * 0.1); gmsh.model.mesh.field.setNumber(4, "DistMax", root_chord * 0.2)
+
+    gmsh.model.mesh.field.add("Min", 3)
+    gmsh.model.mesh.field.setNumbers(3, "FieldsList", [1, 2])
+
+    gmsh.model.mesh.field.setAsBackgroundMesh(3)
+
+    # gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
+    # gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
+    # gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
+
+    gmsh.model.geo.synchronize()
+    gmsh.model.mesh.generate(2)
+
     surface2e = gmsh.model.geo.addSurfaceFilling([curveLoop2e])
     surface3e = gmsh.model.geo.addSurfaceFilling([curveLoop3e])
     surface4e = gmsh.model.geo.addSurfaceFilling([curveLoop4e])
@@ -308,6 +333,10 @@ def build_mesh(geo: Geometry, size: float, refinement_ratio: float = 0.5) -> Non
     surface6d = gmsh.model.geo.addSurfaceFilling([curveLoop6d])
     surface7d = gmsh.model.geo.addSurfaceFilling([curveLoop7d])
     surface8d = gmsh.model.geo.addSurfaceFilling([curveLoop8d])
+
+    
+    gmsh.model.geo.synchronize()
+    gmsh.model.mesh.generate(2)
 
     #################################################################
     # Body
@@ -573,6 +602,12 @@ def build_mesh(geo: Geometry, size: float, refinement_ratio: float = 0.5) -> Non
     p19e = gmsh.model.geo.addPoint(geo.tail_params.p19e[0], geo.tail_params.p19e[1], geo.tail_params.p19e[2], lc)
     p19d = gmsh.model.geo.addPoint(geo.tail_params.p19d[0], geo.tail_params.p19d[1], geo.tail_params.p19d[2], lc)
     p20 = gmsh.model.geo.addPoint(geo.tail_params.p20[0], geo.tail_params.p20[1], geo.tail_params.p20[2], lc)
+    v5e = gmsh.model.geo.addPoint(geo.tail_params.v5e[0], geo.tail_params.v5e[1], geo.tail_params.v5e[2], lc)
+    v6e = gmsh.model.geo.addPoint(geo.tail_params.v6e[0], geo.tail_params.v6e[1], geo.tail_params.v6e[2], lc)
+    v7e = gmsh.model.geo.addPoint(geo.tail_params.v7e[0], geo.tail_params.v7e[1], geo.tail_params.v7e[2], lc)
+    v5d = gmsh.model.geo.addPoint(geo.tail_params.v5d[0], geo.tail_params.v5d[1], geo.tail_params.v5d[2], lc)
+    v6d = gmsh.model.geo.addPoint(geo.tail_params.v6d[0], geo.tail_params.v6d[1], geo.tail_params.v6d[2], lc)
+    v7d = gmsh.model.geo.addPoint(geo.tail_params.v7d[0], geo.tail_params.v7d[1], geo.tail_params.v7d[2], lc)
 
     points35e = []
     size = len(geo.tail_params.curve35e)
@@ -616,25 +651,119 @@ def build_mesh(geo: Geometry, size: float, refinement_ratio: float = 0.5) -> Non
             index = gmsh.model.geo.addPoint(geo.tail_params.curve38[i, 0], geo.tail_params.curve38[i, 1], geo.tail_params.curve38[i, 2], lc)
             points38.append(index)
     
+    points49e = []
+    size = len(geo.tail_params.curve39e)
+    for i in range(size):
+        if i != 0 and i != size - 1:
+            index = gmsh.model.geo.addPoint(geo.tail_params.curve39e[i, 0], geo.tail_params.curve39e[i, 1], geo.tail_params.curve39e[i, 2], lc)
+            points49e.append(index)
+    
+    points50e = []
+    size = len(geo.tail_params.curve40e)
+    for i in range(size):
+        if i != 0 and i != size - 1:
+            index = gmsh.model.geo.addPoint(geo.tail_params.curve40e[i, 0], geo.tail_params.curve40e[i, 1], geo.tail_params.curve40e[i, 2], lc)
+            points50e.append(index)
+    
+    points51e = []
+    size = len(geo.tail_params.curve41e)
+    for i in range(size):
+        if i != 0 and i != size - 1:
+            index = gmsh.model.geo.addPoint(geo.tail_params.curve41e[i, 0], geo.tail_params.curve41e[i, 1], geo.tail_params.curve41e[i, 2], lc)
+            points51e.append(index)
+    
+    points52e = []
+    size = len(geo.tail_params.curve42e)
+    for i in range(size):
+        if i != 0 and i != size - 1:
+            index = gmsh.model.geo.addPoint(geo.tail_params.curve42e[i, 0], geo.tail_params.curve42e[i, 1], geo.tail_params.curve42e[i, 2], lc)
+            points52e.append(index)
+    
+    points49d = []
+    size = len(geo.tail_params.curve39d)
+    for i in range(size):
+        if i != 0 and i != size - 1:
+            index = gmsh.model.geo.addPoint(geo.tail_params.curve39d[i, 0], geo.tail_params.curve39d[i, 1], geo.tail_params.curve39d[i, 2], lc)
+            points49d.append(index)
+    
+    points50d = []
+    size = len(geo.tail_params.curve40d)
+    for i in range(size):
+        if i != 0 and i != size - 1:
+            index = gmsh.model.geo.addPoint(geo.tail_params.curve40d[i, 0], geo.tail_params.curve40d[i, 1], geo.tail_params.curve40d[i, 2], lc)
+            points50d.append(index)
+    
+    points51d = []
+    size = len(geo.tail_params.curve41d)
+    for i in range(size):
+        if i != 0 and i != size - 1:
+            index = gmsh.model.geo.addPoint(geo.tail_params.curve41d[i, 0], geo.tail_params.curve41d[i, 1], geo.tail_params.curve41d[i, 2], lc)
+            points51d.append(index)
+    
+    points52d = []
+    size = len(geo.tail_params.curve42d)
+    for i in range(size):
+        if i != 0 and i != size - 1:
+            index = gmsh.model.geo.addPoint(geo.tail_params.curve42d[i, 0], geo.tail_params.curve42d[i, 1], geo.tail_params.curve42d[i, 2], lc)
+            points52d.append(index)
+    
     # Define curves
-    curve35e = gmsh.model.geo.addPolyline([p10e] + points35e + [p19e])
-    curve35d = gmsh.model.geo.addPolyline([p10d] + points35d + [p19d])
-    curve36e = gmsh.model.geo.addPolyline([p19e] + points36e + [p20])
-    curve36d = gmsh.model.geo.addPolyline([p19d] + points36d + [p20])
+    curve35e1 = gmsh.model.geo.addPolyline([p10e] + asarray(points35e)[:geo.tail_params.v7eIndex - 1].tolist() + [v7e])
+    curve35e2 = gmsh.model.geo.addPolyline([v7e] + asarray(points35e)[geo.tail_params.v7eIndex:].tolist() + [p19e])
+    curve35d1 = gmsh.model.geo.addPolyline([p10d] + asarray(points35d)[:geo.tail_params.v7dIndex - 1].tolist() + [v7d])
+    curve35d2 = gmsh.model.geo.addPolyline([v7d] + asarray(points35d)[geo.tail_params.v7dIndex:].tolist() + [p19d])
+
+    curve36e1 = gmsh.model.geo.addPolyline([p19e] + asarray(points36e)[:geo.tail_params.v6eIndex - 1].tolist() + [v6e])
+    curve36e2 = gmsh.model.geo.addPolyline([v6e] + asarray(points36e)[geo.tail_params.v6eIndex:geo.tail_params.v5eIndex - 1].tolist() + [v5e])
+    curve36e3 = gmsh.model.geo.addPolyline([v5e] + asarray(points36e)[geo.tail_params.v5eIndex:].tolist() + [p20])
+    curve36d1 = gmsh.model.geo.addPolyline([p19d] + asarray(points36d)[:geo.tail_params.v6dIndex - 1].tolist() + [v6d])
+    curve36d2 = gmsh.model.geo.addPolyline([v6d] + asarray(points36d)[geo.tail_params.v6dIndex:geo.tail_params.v5dIndex - 1].tolist() + [v5d])
+    curve36d3 = gmsh.model.geo.addPolyline([v5d] + asarray(points36d)[geo.tail_params.v5dIndex:].tolist() + [p20])
+
     curve37 = gmsh.model.geo.addPolyline([p14] + points37 + [p20])
     curve38 = gmsh.model.geo.addPolyline([p15] + points38 + [p20])
 
-    # Define curve loops
-    curveLoop15e = gmsh.model.geo.addCurveLoop([curve35e, curve36e, curve37, curve31], reorient=True)
-    curveLoop15d = gmsh.model.geo.addCurveLoop([curve35d, curve36d, curve37, curve34], reorient=True)
-    curveLoop16e = gmsh.model.geo.addCurveLoop([curve35e, curve36e, curve38, curve32], reorient=True)
-    curveLoop16d = gmsh.model.geo.addCurveLoop([curve35d, curve36d, curve38, curve33], reorient=True)
+    curve49e = gmsh.model.geo.addPolyline([p10e] + points49e + [v5e])
+    curve50e = gmsh.model.geo.addPolyline([p10e] + points50e + [v5e])
+    curve51e= gmsh.model.geo.addPolyline([v7e] + points51e + [v6e])
+    curve52e = gmsh.model.geo.addPolyline([v7e] + points52e + [v6e])
+    curve49d = gmsh.model.geo.addPolyline([p10d] + points49d + [v5d])
+    curve50d= gmsh.model.geo.addPolyline([p10d] + points50d + [v5d])
+    curve51d = gmsh.model.geo.addPolyline([v7d] + points51d + [v6d])
+    curve52d = gmsh.model.geo.addPolyline([v7d] + points52d + [v6d])
 
-    # Define surfaces
-    surface15e = gmsh.model.geo.addSurfaceFilling([curveLoop15e])
-    surface15d = gmsh.model.geo.addSurfaceFilling([curveLoop15d])
-    surface16e = gmsh.model.geo.addSurfaceFilling([curveLoop16e])
-    surface16d = gmsh.model.geo.addSurfaceFilling([curveLoop16d])
+    # Define curve loops
+    curveLoop15e1 = gmsh.model.geo.addCurveLoop([curve31, curve49e, curve36e3, curve37], reorient=True)
+    curveLoop15e2 = gmsh.model.geo.addCurveLoop([curve35e1, curve51e, curve36e2, curve49e], reorient=True)
+    curveLoop15e3 = gmsh.model.geo.addCurveLoop([curve35e2, curve36e1, curve51e], reorient=True)
+
+    curveLoop16e1 = gmsh.model.geo.addCurveLoop([curve32, curve50e, curve36e3, curve38], reorient=True)
+    curveLoop16e2 = gmsh.model.geo.addCurveLoop([curve35e1, curve52e, curve36e2, curve50e], reorient=True)
+    curveLoop16e3 = gmsh.model.geo.addCurveLoop([curve35e2, curve36e1, curve52e], reorient=True)
+
+    curveLoop15d1 = gmsh.model.geo.addCurveLoop([curve34, curve49d, curve36d3, curve37], reorient=True)
+    curveLoop15d2 = gmsh.model.geo.addCurveLoop([curve35d1, curve51d, curve36d2, curve49d], reorient=True)
+    curveLoop15d3 = gmsh.model.geo.addCurveLoop([curve35d2, curve36d1, curve51d], reorient=True)
+
+    curveLoop16d1 = gmsh.model.geo.addCurveLoop([curve33, curve50d, curve36d3, curve38], reorient=True)
+    curveLoop16d2 = gmsh.model.geo.addCurveLoop([curve35d1, curve52d, curve36d2, curve50d], reorient=True)
+    curveLoop16d3 = gmsh.model.geo.addCurveLoop([curve35d2, curve36d1, curve52d], reorient=True)
+
+
+    # # Define surfaces
+    surface15e1 = gmsh.model.geo.addSurfaceFilling([curveLoop15e1])
+    surface15e2 = gmsh.model.geo.addSurfaceFilling([curveLoop15e2])
+    surface15e3 = gmsh.model.geo.addSurfaceFilling([curveLoop15e3])
+    surface16e1 = gmsh.model.geo.addSurfaceFilling([curveLoop16e1])
+    surface16e2 = gmsh.model.geo.addSurfaceFilling([curveLoop16e2])
+    surface16e3 = gmsh.model.geo.addSurfaceFilling([curveLoop16e3])
+
+    surface15d1 = gmsh.model.geo.addSurfaceFilling([curveLoop15d1])
+    surface15d2 = gmsh.model.geo.addSurfaceFilling([curveLoop15d2])
+    surface15d3 = gmsh.model.geo.addSurfaceFilling([curveLoop15d3])
+    surface16d1 = gmsh.model.geo.addSurfaceFilling([curveLoop16d1])
+    surface16d2 = gmsh.model.geo.addSurfaceFilling([curveLoop16d2])
+    surface16d3 = gmsh.model.geo.addSurfaceFilling([curveLoop16d3])
 
     #################################################################
     # Head
@@ -763,29 +892,11 @@ def build_mesh(geo: Geometry, size: float, refinement_ratio: float = 0.5) -> Non
     surface18d = gmsh.model.geo.addSurfaceFilling([curveLoop18d])
     surface19d = gmsh.model.geo.addSurfaceFilling([curveLoop19d])
     surface20d = gmsh.model.geo.addSurfaceFilling([curveLoop20d])
-    
-    # Refinement
-    # root_chord = vector.norm(geo.wing_params.p1e - geo.wing_params.p8e)
-
-    # gmsh.model.mesh.field.add("Distance", 1); gmsh.model.mesh.field.setNumbers(1, "CurvesList", [curve1e]); gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
-    # gmsh.model.mesh.field.add("Threshold", 2); gmsh.model.mesh.field.setNumber(2, "InField", 1); gmsh.model.mesh.field.setNumber(2, "SizeMin", lc * refinement_ratio); gmsh.model.mesh.field.setNumber(2, "SizeMax", lc); gmsh.model.mesh.field.setNumber(2, "DistMin", root_chord * 0.1); gmsh.model.mesh.field.setNumber(2, "DistMax", root_chord * 0.2)
-
-    # gmsh.model.mesh.field.add("Distance", 3); gmsh.model.mesh.field.setNumbers(3, "CurvesList", [curve2e]); gmsh.model.mesh.field.setNumber(3, "Sampling", 100)
-    # gmsh.model.mesh.field.add("Threshold", 4); gmsh.model.mesh.field.setNumber(4, "InField", 3); gmsh.model.mesh.field.setNumber(4, "SizeMin", lc * refinement_ratio); gmsh.model.mesh.field.setNumber(4, "SizeMax", lc); gmsh.model.mesh.field.setNumber(4, "DistMin", root_chord * 0.1); gmsh.model.mesh.field.setNumber(4, "DistMax", root_chord * 0.2)
-
-    # gmsh.model.mesh.field.add("Min", 5)
-    # gmsh.model.mesh.field.setNumbers(5, "FieldsList", [1, 2, 3, 4])
-
-    # gmsh.model.mesh.field.setAsBackgroundMesh(3)
-
-    # gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
-    # gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
-    # gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
 
     # Build mesh
-    gmsh.option.setNumber("Mesh.Algorithm", 5)
-    gmsh.model.geo.synchronize()
-    gmsh.model.mesh.generate(2)
+    # gmsh.option.setNumber("Mesh.Algorithm", 5)
+    # gmsh.model.geo.synchronize()
+    # gmsh.model.mesh.generate(2)
 
     if '-nopopup' not in sys.argv:
         gmsh.fltk.run()

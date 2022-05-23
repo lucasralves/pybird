@@ -135,7 +135,7 @@ class WingFinalParams:
     def calcQuaternion1e(self) -> None:
         
         # Quaternion around -y
-        q_y = quaternion.fromAxisAngle(-self.__data.y0, self.__data.theta2e)
+        q_y = quaternion.fromAxisAngle(-self.__data.y0, self.__data.theta2e + self.__data.thetaInc)
 
         # Rotate x axis
         x1 = quaternion.rotate(q_y, self.__data.x0)
@@ -481,7 +481,7 @@ class WingFinalParams:
     
     def calcP8e(self) -> None:
         q_z = quaternion.fromAxisAngle(self.__data.z0, self.__data.theta0)
-        q_y = quaternion.fromAxisAngle(-self.__data.y0, self.__data.theta2e)
+        q_y = quaternion.fromAxisAngle(-self.__data.y0, self.__data.thetaInc)
         v = - self.__data.h7 * self.__data.x0
         self.p8e = self.p0e + quaternion.rotate(q_y, quaternion.rotate(q_z, v))
     
@@ -961,7 +961,7 @@ class WingFinalParams:
     def calcQuaternion1d(self) -> None:
         
         # Quaternion around -y
-        q_y = quaternion.fromAxisAngle(-self.__data.y0, self.__data.theta2d)
+        q_y = quaternion.fromAxisAngle(-self.__data.y0, self.__data.theta2d + self.__data.thetaInc)
 
         # Rotate x axis
         x1 = quaternion.rotate(q_y, self.__data.x0)
@@ -1309,7 +1309,7 @@ class WingFinalParams:
         q_z = quaternion.fromAxisAngle(-self.__data.z0, self.__data.theta0)
         q_y = quaternion.fromAxisAngle(-self.__data.y0, self.__data.theta2d)
         v = - self.__data.h7 * self.__data.x0
-        self.p8d = self.p0d + quaternion.rotate(q_y, quaternion.rotate(q_z, v))
+        self.p8d = self.p0d + quaternion.rotate(q_z, v) # quaternion.rotate(q_y, quaternion.rotate(q_z, v))
     
     #-------------------------------------#
     @property
