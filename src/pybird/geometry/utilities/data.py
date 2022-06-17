@@ -1,9 +1,243 @@
-from numpy import array, copy
+from __future__ import annotations
+from json import dumps, load
+from numpy import array, asarray, copy
 
 from pybird.helpers.type import Curve, Quaternion, Vector
 from pybird.helpers import quaternion
 
 class Data:
+
+    @staticmethod
+    def fromJson(filename: str) -> Data:
+        file = open(filename)
+        params = load(file)
+        file.close()
+
+        data = Data()
+
+        data.l0 = params['l0']
+        data.l1 = params['l1']
+        data.l2 = params['l2']
+        data.l3 = params['l3']
+        data.thetaInc = params['thetaInc']
+        data.theta0 = params['theta0']
+        data.theta1e = params['theta1e']
+        data.theta2e = params['theta2e']
+        data.theta3e = params['theta3e']
+        data.theta4e = params['theta4e']
+        data.theta5e = params['theta5e']
+        data.theta6e = params['theta6e']
+        data.theta7e = params['theta7e']
+        data.theta1d = params['theta1d']
+        data.theta2d = params['theta2d']
+        data.theta3d = params['theta3d']
+        data.theta4d = params['theta4d']
+        data.theta5d = params['theta5d']
+        data.theta6d = params['theta6d']
+        data.theta7d = params['theta7d']
+        data.h1 = params['h1']
+        data.h2 = params['h2']
+        data.h3 = params['h3']
+        data.h4 = params['h4']
+        data.h5 = params['h5']
+        data.h6 = params['h6']
+        data.h7 = params['h7']
+        data.delta1 = params['delta1']
+        data.delta2 = params['delta2']
+        data.delta3 = params['delta3']
+        data.delta4 = params['delta4']
+        data.delta5 = params['delta5']
+        data.delta6 = params['delta6']
+        data.epsilon1 = params['epsilon1']
+        data.epsilon2 = params['epsilon2']
+        data.epsilon3 = params['epsilon3']
+        data.rootAirfoil = None if params['rootAirfoil'] is None else asarray(params['rootAirfoil'])
+        data.middleAirfoil = None if params['middleAirfoil'] is None else asarray(params['middleAirfoil'])
+        data.tipAirfoil = None if params['tipAirfoil'] is None else asarray(params['tipAirfoil'])
+        data.delta = params['delta']
+
+        data.h8 = params['h8']
+        data.h9 = params['h9']
+        data.h10 = params['h10']
+        data.h11 = params['h11']
+        data.h12 = params['h12']
+        data.h13 = params['h13']
+        data.h14 = params['h14']
+        data.h15 = params['h15']
+        data.h16 = params['h16']
+        data.h17 = params['h17']
+        data.h18 = params['h18']
+        data.delta7 = params['delta7']
+        data.delta8 = params['delta8']
+        data.delta9 = params['delta9']
+        data.delta10 = params['delta10']
+        data.delta11 = params['delta11']
+        data.delta12 = params['delta12']
+        data.delta13 = params['delta13']
+        data.delta14 = params['delta14']
+        data.delta15 = params['delta15']
+        data.delta16 = params['delta16']
+        data.delta17 = params['delta17']
+        data.delta18 = params['delta18']
+        data.delta19 = params['delta19']
+        data.delta20 = params['delta20']
+        data.delta21 = params['delta21']
+        data.delta22 = params['delta22']
+        data.delta23 = params['delta23']
+        data.delta24 = params['delta24']
+        data.delta25 = params['delta25']
+        data.delta26 = params['delta26']
+        data.delta27 = params['delta27']
+        data.delta28 = params['delta28']
+        data.delta29 = params['delta29']
+        data.delta30 = params['delta30']
+        data.delta31 = params['delta31']
+        data.delta32 = params['delta32']
+        data.delta33 = params['delta33']
+        data.delta34 = params['delta34']
+        data.delta35 = params['delta35']
+        data.delta36 = params['delta36']
+        data.delta37 = params['delta37']
+        data.delta38 = params['delta38']
+        data.delta39 = params['delta39']
+        data.delta40 = params['delta40']
+        data.delta41 = params['delta41']
+        data.delta42 = params['delta42']
+        data.delta43 = params['delta43']
+        data.delta44 = params['delta44']
+        data.delta45 = params['delta45']
+        data.delta46 = params['delta46']
+
+        data.h19 = params['h19']
+        data.h20 = params['h20']
+        data.h21 = params['h21']
+        data.delta47 = params['delta47']
+        data.delta48 = params['delta48']
+        data.theta8 = params['theta8']
+        data.theta9 = params['theta9']
+        data.theta10 = params['theta10']
+        data.tailShape = params['tailShape']
+        data.tailAirfoil = None if params['tailAirfoil'] is None else asarray(params['tailAirfoil'])
+
+        data.h22 = params['h22']
+        data.h23 = params['h23']
+        data.h24 = params['h24']
+        data.delta49 = params['delta49']
+        data.delta50 = params['delta50']
+        
+        return data
+
+    def toJson(self) -> str:
+        data = {
+            'l0': self.l0,
+            'l1': self.l1,
+            'l2': self.l2,
+            'l3': self.l3,
+            'thetaInc': self.thetaInc,
+            'theta0': self.theta0,
+            'theta1e': self.theta1e,
+            'theta2e': self.theta2e,
+            'theta3e': self.theta3e,
+            'theta4e': self.theta4e,
+            'theta5e': self.theta5e,
+            'theta6e': self.theta6e,
+            'theta7e': self.theta7e,
+            'theta1d': self.theta1d,
+            'theta2d': self.theta2d,
+            'theta3d': self.theta3d,
+            'theta4d': self.theta4d,
+            'theta5d': self.theta5d,
+            'theta6d': self.theta6d,
+            'theta7d': self.theta7d,
+            'h1': self.h1,
+            'h2': self.h2,
+            'h3': self.h3,
+            'h4': self.h4,
+            'h5': self.h5,
+            'h6': self.h6,
+            'h7': self.h7,
+            'delta1': self.delta1,
+            'delta2': self.delta2,
+            'delta3': self.delta3,
+            'delta4': self.delta4,
+            'delta5': self.delta5,
+            'delta6': self.delta6,
+            'epsilon1': self.epsilon1,
+            'epsilon2': self.epsilon2,
+            'epsilon3': self.epsilon3,
+            'rootAirfoil': self.rootAirfoil,
+            'middleAirfoil': self.middleAirfoil,
+            'tipAirfoil': self.tipAirfoil,
+            'delta': self.delta,
+            'h8': self.h8,
+            'h9': self.h9,
+            'h10': self.h10,
+            'h11': self.h11,
+            'h12': self.h12,
+            'h13': self.h13,
+            'h14': self.h14,
+            'h15': self.h15,
+            'h16': self.h16,
+            'h17': self.h17,
+            'h18': self.h18,
+            'delta7': self.delta7,
+            'delta8': self.delta8,
+            'delta9': self.delta9,
+            'delta10': self.delta10,
+            'delta11': self.delta11,
+            'delta12': self.delta12,
+            'delta13': self.delta13,
+            'delta14': self.delta14,
+            'delta15': self.delta15,
+            'delta16': self.delta16,
+            'delta17': self.delta17,
+            'delta18': self.delta18,
+            'delta19': self.delta19,
+            'delta20': self.delta20,
+            'delta21': self.delta21,
+            'delta22': self.delta22,
+            'delta23': self.delta23,
+            'delta24': self.delta24,
+            'delta25': self.delta25,
+            'delta26': self.delta26,
+            'delta27': self.delta27,
+            'delta28': self.delta28,
+            'delta29': self.delta29,
+            'delta30': self.delta30,
+            'delta31': self.delta31,
+            'delta32': self.delta32,
+            'delta33': self.delta33,
+            'delta34': self.delta34,
+            'delta35': self.delta35,
+            'delta36': self.delta36,
+            'delta37': self.delta37,
+            'delta38': self.delta38,
+            'delta39': self.delta39,
+            'delta40': self.delta40,
+            'delta41': self.delta41,
+            'delta42': self.delta42,
+            'delta43': self.delta43,
+            'delta44': self.delta44,
+            'delta45': self.delta45,
+            'delta46': self.delta46,
+            'h19': self.h19,
+            'h20': self.h20,
+            'h21': self.h21,
+            'delta47': self.delta47,
+            'delta48': self.delta48,
+            'theta8': self.theta8,
+            'theta9': self.theta9,
+            'theta10': self.theta10,
+            'tailShape': self.tailShape,
+            'tailAirfoil': self.tailAirfoil,
+            'h22': self.h22,
+            'h23': self.h23,
+            'h24': self.h24,
+            'delta49': self.delta49,
+            'delta50': self.delta50,
+        }
+        json_obj = dumps(data, indent=2)
+        return json_obj
 
     def __init__(self) -> None:
         
@@ -12,7 +246,7 @@ class Data:
         self.l1 = 0.15
         self.l2 = 0.3
         self.l3 = 0.2
-        self.thetaInc = 3.0
+        self.thetaInc = 2.0
         self.theta0 = 2.0
         self.theta1e = .0
         self.theta2e = .0
@@ -65,35 +299,35 @@ class Data:
         self.delta8 = .1
         self.delta9 = .1
         self.delta10 = .1
-        self.delta11 = .1
-        self.delta12 = .1
-        self.delta13 = .1
-        self.delta14 = .1
-        self.delta15 = .1
-        self.delta16 = .1
-        self.delta17 = .1
-        self.delta18 = .1
-        self.delta19 = .1
-        self.delta20 = .1
-        self.delta21 = .1
-        self.delta22 = .1
-        self.delta23 = .1
-        self.delta24 = .1
-        self.delta25 = .1
-        self.delta26 = .1
-        self.delta27 = .1
-        self.delta28 = .1
-        self.delta29 = .1
-        self.delta30 = .1
-        self.delta31 = .1
-        self.delta32 = .1
-        self.delta33 = .1
-        self.delta34 = .1
-        self.delta35 = .1
-        self.delta36 = .1
-        self.delta37 = .1
-        self.delta38 = .1
-        self.delta39 = .5
+        self.delta11 = .05
+        self.delta12 = .05
+        self.delta13 = .05
+        self.delta14 = .05
+        self.delta15 = .05
+        self.delta16 = .05
+        self.delta17 = .05
+        self.delta18 = .05
+        self.delta19 = .05
+        self.delta20 = .05
+        self.delta21 = .05
+        self.delta22 = .05
+        self.delta23 = .05
+        self.delta24 = .05
+        self.delta25 = .05
+        self.delta26 = .05
+        self.delta27 = .05
+        self.delta28 = .05
+        self.delta29 = .05
+        self.delta30 = .05
+        self.delta31 = .05
+        self.delta32 = .05
+        self.delta33 = .05
+        self.delta34 = .05
+        self.delta35 = .05
+        self.delta36 = .05
+        self.delta37 = .05
+        self.delta38 = .05
+        self.delta39 = .05
         self.delta40 = .5
         self.delta41 = .5
         self.delta42 = .5
@@ -186,7 +420,9 @@ class Data:
     
     @theta0.setter
     def theta0(self, value: float) -> None:
-        if -70 < value < 70: self.__theta0 = value
+        if -10 < value < 10: self.__theta0 = value
+        if value < -10: self.__theta0 = -10
+        if value > 10: self.__theta0 = 10
     
     #-------------------------------------#
     @property
@@ -196,6 +432,8 @@ class Data:
     @theta1e.setter
     def theta1e(self, value: float) -> None:
         if -70 < value < 70: self.__theta1e = value
+        if value < -70: self.__theta1e = -70
+        if value > 70: self.__theta1e = 70
     
     #-------------------------------------#
     @property
@@ -205,6 +443,8 @@ class Data:
     @theta2e.setter
     def theta2e(self, value: float) -> None:
         if -20 < value < 20: self.__theta2e = value
+        if value < -20: self.__theta2e = -20
+        if value > 20: self.__theta2e = 20
     
     #-------------------------------------#
     @property
@@ -214,6 +454,8 @@ class Data:
     @theta3e.setter
     def theta3e(self, value: float) -> None:
         if -45 < value < 45: self.__theta3e = value
+        if value < -45: self.__theta3e = -45
+        if value > 45: self.__theta3e = 45
     
     #-------------------------------------#
     @property
@@ -223,6 +465,8 @@ class Data:
     @theta4e.setter
     def theta4e(self, value: float) -> None:
         if -45 < value < 45: self.__theta4e = value
+        if value < -45: self.__theta4e = -45
+        if value > 45: self.__theta4e = 45
     
     #-------------------------------------#
     @property
@@ -232,6 +476,8 @@ class Data:
     @theta5e.setter
     def theta5e(self, value: float) -> None:
         if 0 <= value < 45: self.__theta5e = value
+        if value < 0: self.__theta5e = 0
+        if value > 45: self.__theta5e = 45
     
     #-------------------------------------#
     @property
@@ -241,6 +487,8 @@ class Data:
     @theta6e.setter
     def theta6e(self, value: float) -> None:
         if -45 < value < 60: self.__theta6e = value
+        if value < -45: self.__theta6e = -45
+        if value > 60: self.__theta6e = 60
     
     #-------------------------------------#
     @property
@@ -250,6 +498,8 @@ class Data:
     @theta7e.setter
     def theta7e(self, value: float) -> None:
         if -45 < value < 60: self.__theta7e = value
+        if value < -45: self.__theta7e = -45
+        if value > 60: self.__theta7e = 60
     
     #-------------------------------------#
     @property
@@ -259,6 +509,8 @@ class Data:
     @theta1d.setter
     def theta1d(self, value: float) -> None:
         if -70 < value < 70: self.__theta1d = value
+        if value < -70: self.__theta1d = -70
+        if value > 70: self.__theta1d = 70
     
     #-------------------------------------#
     @property
@@ -268,6 +520,8 @@ class Data:
     @theta2d.setter
     def theta2d(self, value: float) -> None:
         if -20 < value < 20: self.__theta2d = value
+        if value < -20: self.__theta2d = -20
+        if value > 20: self.__theta2d = 20
     
     #-------------------------------------#
     @property
@@ -277,6 +531,8 @@ class Data:
     @theta3d.setter
     def theta3d(self, value: float) -> None:
         if -45 < value < 45: self.__theta3d = value
+        if value < -45: self.__theta3d = -45
+        if value > 45: self.__theta3d = 45
     
     #-------------------------------------#
     @property
@@ -286,6 +542,8 @@ class Data:
     @theta4d.setter
     def theta4d(self, value: float) -> None:
         if -45 < value < 45: self.__theta4d = value
+        if value < -45: self.__theta4d = -45
+        if value > 45: self.__theta4d = 45
     
     #-------------------------------------#
     @property
@@ -295,6 +553,8 @@ class Data:
     @theta5d.setter
     def theta5d(self, value: float) -> None:
         if 0 <= value < 45: self.__theta5d = value
+        if value < 0: self.__theta5d = 0
+        if value > 45: self.__theta5d = 45
     
     #-------------------------------------#
     @property
@@ -304,6 +564,8 @@ class Data:
     @theta6d.setter
     def theta6d(self, value: float) -> None:
         if -45 < value < 60: self.__theta6d = value
+        if value < -45: self.__theta6d = -45
+        if value > 60: self.__theta6d = 60
     
     #-------------------------------------#
     @property
@@ -313,6 +575,8 @@ class Data:
     @theta7d.setter
     def theta7d(self, value: float) -> None:
         if -45 < value < 60: self.__theta7d = value
+        if value < -45: self.__theta7d = -45
+        if value > 60: self.__theta7d = 60
     
     #-------------------------------------#
     @property
@@ -1140,7 +1404,7 @@ class Data:
     
     @theta8.setter
     def theta8(self, value: float) -> None:
-        if 0 <= value < 60: self.__theta8 = value
+        if -30 <= value < 30: self.__theta8 = value
     
     #-------------------------------------#
     @property
@@ -1149,7 +1413,7 @@ class Data:
     
     @theta9.setter
     def theta9(self, value: float) -> None:
-        if 0 <= value < 60: self.__theta9 = value
+        if -30 <= value < 30: self.__theta9 = value
     
     #-------------------------------------#
     @property
@@ -1158,7 +1422,7 @@ class Data:
     
     @theta10.setter
     def theta10(self, value: float) -> None:
-        if 0 <= value < 60: self.__theta10 = value
+        if -30 <= value < 30: self.__theta10 = value
     
     #-------------------------------------#
     @property

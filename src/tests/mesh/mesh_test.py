@@ -4,6 +4,7 @@ sys.path.append('./src')
 import pybird
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 if __name__ == '__main__':
@@ -49,5 +50,10 @@ if __name__ == '__main__':
     #---------------------------#
     model.geo.tail_params.update()
 
+    #---------------------------#
     # Mesh
-    model.mesh.build(0.02, 0.5)
+    model.mesh.build(0.05, 0.5)
+
+    #---------------------------#
+    # View
+    model.view.mesh()
