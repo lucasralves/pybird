@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append('./src')
 
 import pybird
@@ -25,9 +26,9 @@ if __name__ == '__main__':
     model.geo.setValue('delta3', 0.2)
     model.geo.setValue('delta4', 0.8)
     model.geo.setValue('delta6', 0.1)
-    model.geo.setValue('rootAirfoil', np.loadtxt('./data/foil.txt'))
-    model.geo.setValue('middleAirfoil', np.loadtxt('./data/foil.txt'))
-    model.geo.setValue('tipAirfoil', np.loadtxt('./data/foil.txt'))
+    model.geo.setValue('rootAirfoil', np.loadtxt('./example/data/root_ref.txt'))
+    model.geo.setValue('middleAirfoil', np.loadtxt('./example/data/middle_ref.txt'))
+    model.geo.setValue('tipAirfoil', np.loadtxt('./example/data/tip_ref.txt'))
     
     #--------------------------------#
     # Body
@@ -42,11 +43,12 @@ if __name__ == '__main__':
 
     #--------------------------------#
     # Tail
-    model.geo.setValue('tailAirfoil', np.loadtxt('./data/foil.txt'))
-    model.geo.setValue('tailShape', '4')
+    model.geo.setValue('tailAirfoil', np.loadtxt('./example/data/tip_ref.txt'))
+    model.geo.setValue('tailShape', '3')
     model.geo.setValue('h19', 0.4)
     model.geo.setValue('h20', 0.15)
     model.geo.setValue('delta47', 1.1)
+    model.geo.setValue('delta48', 0.2)
 
     #--------------------------------#
     # Head
@@ -57,12 +59,14 @@ if __name__ == '__main__':
     #--------------------------------#
     # Mesh
     model.mesh.build(
-        size=0.03,
-        coeff_wing_le=5,
-        coeff_wing_te=3,
-        coeff_tail_le=5,
-        coeff_tail_te=3,
-        coeff_head=5,
+        size=0.05,
+        refinement=pybird.inputs.Refinement(
+            coeff_wing_le=2,
+            coeff_wing_te=2,
+            coeff_tail_le=3,
+            coeff_tail_te=3,
+            coeff_head=3,
+        ),
     )
 
     #--------------------------------#
