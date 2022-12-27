@@ -1,0 +1,16 @@
+{
+    "files.associations": {
+        "models.c": "cpp",
+        "calc_vertices_params.c": "cpp",
+        "mesh.h": "c",
+        "aero.h": "c",
+        "solver.h": "c",
+        "models.h": "c",
+        "stdlib.h": "c",
+        "math.h": "c",
+        "gmres.h": "c",
+        "induced_velocity.h": "c",
+        "tri_face_area.c": "cpp",
+        "tri_face_area.h": "c"
+    }
+}

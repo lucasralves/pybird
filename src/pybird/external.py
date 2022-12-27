@@ -6,6 +6,7 @@ from pybird.modules.geo.models.external import *
 from pybird.modules.geo.geo import Geometry
 from pybird.modules.mesh.mesh import Mesh
 from pybird.modules.view.view import View
+from pybird.modules.solver.solver import Solver
 
 @dataclass
 class CaseModel:
@@ -50,6 +51,7 @@ class __model:
         self.info = CaseModel(name, description, geo)
         self.geo: Geometry = None
         self.mesh: Mesh = None
+        self.solver: Solver = None
         self.view: View = None
         self.verbose: bool = False
         return
@@ -57,7 +59,8 @@ class __model:
     def update_case(self) -> None:
         self.geo = Geometry(self.info.geo, self.verbose)
         self.mesh = Mesh(self.geo, self.verbose)
-        self.view = View(self.mesh, self.verbose)
+        self.solver = Solver(self.mesh, self.verbose)
+        self.view = View(self.mesh, self.solver, self.verbose)
         return
 
     def save(self, filename: str) -> None:

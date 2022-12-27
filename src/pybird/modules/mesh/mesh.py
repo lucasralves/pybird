@@ -1,14 +1,13 @@
 import sys
 from abc import ABC
 from typing import List
-from numpy import ndarray, ones, int32, asarray
+from numpy import argwhere, ndarray, int32, asarray, cross, empty, double, dot, flip, copy
 from numpy.linalg import norm
-from math import ceil, log10
+from math import ceil, fabs, sqrt, pi, sin, acos
 import gmsh
 
 from pybird.modules.geo.geo import Geometry
 from pybird.modules.helpers import warnings
-from pybird.modules.mesh.models.face_model import FaceModel
 from pybird.modules.mesh.models.refinement_model import RefinementModel
 
 class MESH_ABS(ABC):
@@ -26,12 +25,170 @@ class Mesh(MESH_ABS):
     def __init__(self, geo: Geometry, verbose: bool) -> None:
         self.__geo = geo
         self.__verbose = verbose
+        return
 
+    def build(self, refinement: RefinementModel) -> None:
+
+        vertices, faces3, faces4, trailing_edge_list = self.__create_mesh(refinement)
+        
         self.vertices: ndarray = None
-        self.faces: List[FaceModel] = None
+        self.faces: ndarray = None
         self.trailing_edge: ndarray = None
+
+        self.vertices, self.faces, self.trailing_edge = self.__correct_vertices_ids(vertices, faces3, faces4, trailing_edge_list)
+
+        self.nf = len(self.faces)
+        self.nv = self.vertices.shape[0]
+        self.nte_wake = self.trailing_edge.shape[0]
+
+        # Find trailing edge faces
+        self.trailing_edge_faces = empty((self.nte_wake, 2), dtype=int32)
+
+        for i in range(self.nte_wake):
+            check1 = (self.faces[:, 1] == self.trailing_edge[i, 0]) | (self.faces[:, 2] == self.trailing_edge[i, 0]) | (self.faces[:, 3] == self.trailing_edge[i, 0]) | (self.faces[:, 4] == self.trailing_edge[i, 0])
+            check2 = (self.faces[:, 1] == self.trailing_edge[i, 1]) | (self.faces[:, 2] == self.trailing_edge[i, 1]) | (self.faces[:, 3] == self.trailing_edge[i, 1]) | (self.faces[:, 4] == self.trailing_edge[i, 1])
+            index = argwhere(check1 & check2)
+            self.trailing_edge_faces[i, 0] = index[0][0]
+            self.trailing_edge_faces[i, 1] = index[1][0]
+        
+        self.p_avg = empty((self.nf, 3), dtype=double)
+        self.p_ctrl = empty((self.nf, 3), dtype=double)
+        self.e1 = empty((self.nf, 3), dtype=double)
+        self.e2 = empty((self.nf, 3), dtype=double)
+        self.e3 = empty((self.nf, 3), dtype=double)
+        self.p1 = empty((self.nf, 2), dtype=double)
+        self.p2 = empty((self.nf, 2), dtype=double)
+        self.p3 = empty((self.nf, 2), dtype=double)
+        self.p4 = empty((self.nf, 2), dtype=double)
+        self.area = empty(self.nf, dtype=double)
+        self.max_distance = empty(self.nf, dtype=double)
+        self.scale_factor = empty(self.nf, dtype=double)
+
+        self.__calculate_faces_params()
+
+        self.nv_wake: int = -1
+        self.nw_wake: int = -1
+        self.wake_ids: ndarray = None
+        self.vertices_wake: ndarray = None
+
+        return
+
+    def __calculate_faces_params(self) -> None:
+
+        p1_local = empty(2, dtype=double)
+        p2_local = empty(2, dtype=double)
+        p3_local = empty(2, dtype=double)
+        p4_local = empty(2, dtype=double)
+
+        for i in range(self.nf):
+
+            # Points
+            p1 = self.vertices[self.faces[i, 1], :]
+            p2 = self.vertices[self.faces[i, 2], :]
+            p3 = self.vertices[self.faces[i, 3], :]
+
+            if self.faces[i, 0] == 4:
+                p4 = self.vertices[self.faces[i, 4], :]
+            
+            # Face center
+            if self.faces[i, 0] == 3:
+                p_avg = (1 / 3) * (p1 + p2 + p3)
+            else:
+                p_avg = 0.25 * (p1 + p2 + p3 + p4)
+
+            # Base vectors
+            # e3
+            if self.faces[i, 0] == 4:
+                v1 = p2 - p4
+                v2 = p3 - p1
+            else:
+                v1 = p2 - p1
+                v2 = p3 - p1
+            
+            n = cross(v1, v2)
+            n_norm = norm(n)
+
+            e3 = n / n_norm
+
+            # e1
+            n[:] = 1.0
+
+            if fabs(e3[0] > 1e-2):
+                n[0] = - (e3[1] * n[1] + e3[2] * n[2]) / e3[0]
+            else:
+                if fabs(e3[1] > 1e-2):
+                    n[1] = - (e3[0] * n[0] + e3[2] * n[2]) / e3[1]
+                else:
+                    n[2] = - (e3[1] * n[1] + e3[0] * n[0]) / e3[2]
+            
+            n_norm = norm(n)
+
+            e1 = n / n_norm
+
+            # e2
+            e2 = cross(e3, e1)
+
+            # Control point
+            p_ctrl = p_avg + e3 * 1e-12
+
+            # Local points
+            v1 = p1 - p_avg
+            v2 = p2 - p_avg
+            v3 = p3 - p_avg
+
+            p1_local[0] = dot(e1, v1)
+            p1_local[1] = dot(e2, v1)
+
+            p2_local[0] = dot(e1, v2)
+            p2_local[1] = dot(e2, v2)
+
+            p3_local[0] = dot(e1, v3)
+            p3_local[1] = dot(e2, v3)
+
+            if self.faces[i, 0] == 4:
+                v4 = p4 - p_avg
+
+                p4_local[0] = dot(e1, v4)
+                p4_local[1] = dot(e2, v4)
+
+            if self.faces[i, 0] == 4:
+                area = self.__triangule_area(p1, p2, p3) + self.__triangule_area(p1, p3, p4)
+            else:
+                area = self.__triangule_area(p1, p2, p3)
+
+            max_distance = 10 * 2 * sqrt(area / pi)
+
+            # Min. distance
+            min_list = [
+                norm(v1 + dot(v1, v2 - v1) * (v2 - v1) / norm(v2 - v1)),
+                norm(v2 + dot(v2, v3 - v2) * (v3 - v2) / norm(v3 - v2)),
+                norm(v3 + dot(v3, v4 - v3) * (v4 - v3) / norm(v4 - v3)),
+            ]
+            
+            if self.faces[i, 0] == 4:
+                min_list.append(norm(v4 + dot(v4, v1 - v4) * (v1 - v4) / norm(v1 - v4)))
+            
+            scale_factor = min(min_list)
+
+            # Save
+            self.p_avg[i, :] = p_avg[:]
+            self.p_ctrl[i, :] = p_ctrl[:]
+            self.e1[i, :] = e1[:]
+            self.e2[i, :] = e2[:]
+            self.e3[i, :] = e3[:]
+            self.p1[i, :] = p1_local[:]
+            self.p2[i, :] = p2_local[:]
+            self.p3[i, :] = p3_local[:]
+            self.p4[i, :] = p4_local[:]
+            self.area[i] = area
+            self.max_distance[i] = max_distance
+            self.scale_factor[i] = scale_factor
+        
         return
     
+    def __triangule_area(self, p1: ndarray, p2: ndarray, p3: ndarray) -> float:
+        return 0.5 * fabs(p1[0] * p2[1] + p2[0] * p3[1] + p3[0] * p1[1] - p1[1] * p2[0] - p2[1] * p3[0] - p3[1] * p1[0])
+
     def __flip(self, a: List[int]) -> List[int]:
 
         l = []
@@ -40,16 +197,8 @@ class Mesh(MESH_ABS):
         l.reverse()
 
         return l
-    
-    def __vertices_pairs(self, a: List[int]) -> List[List[int]]:
-        
-        l = []
-        for i in range(len(a) - 1):
-            l.append([a[i], a[i + 1]])
-        
-        return l
 
-    def build(self, refinement: RefinementModel) -> None:
+    def __create_mesh(self, refinement: RefinementModel) -> List:
 
         warnings.title('Building mesh', self.__verbose)
 
@@ -154,7 +303,6 @@ class Mesh(MESH_ABS):
         c_19d = gmsh.model.geo.add_point(self.__geo.c19d[0], self.__geo.c19d[1], self.__geo.c19d[2])
         c_20d = gmsh.model.geo.add_point(self.__geo.c20d[0], self.__geo.c20d[1], self.__geo.c20d[2])
         c_21d = gmsh.model.geo.add_point(self.__geo.c21d[0], self.__geo.c21d[1], self.__geo.c21d[2])
-
 
         p_26e = gmsh.model.geo.add_point(self.__geo.p26e[0], self.__geo.p26e[1], self.__geo.p26e[2])
         p_26d = gmsh.model.geo.add_point(self.__geo.p26d[0], self.__geo.p26d[1], self.__geo.p26d[2])
@@ -377,7 +525,6 @@ class Mesh(MESH_ABS):
         curve_24_6_d = gmsh.model.geo.add_polyline([p_24d] + [gmsh.model.geo.add_point(point[0], point[1], point[2]) for point in self.__geo.curve43d] + [p_6d])
         curve_8_25_d = gmsh.model.geo.add_polyline([p_8d] + [gmsh.model.geo.add_point(point[0], point[1], point[2]) for point in self.__geo.curve46d] + [p_25d])
         curve_25_6_d = gmsh.model.geo.add_polyline([p_25d] + [gmsh.model.geo.add_point(point[0], point[1], point[2]) for point in self.__geo.curve44d] + [p_6d])
-
 
         curve_26_1_e = gmsh.model.geo.add_bezier([p_26e, c_22e, c_23e, p_1e])
         curve_13_27_e = gmsh.model.geo.add_bezier([p_13e, c_24e, c_25e, p_27e])
@@ -716,28 +863,28 @@ class Mesh(MESH_ABS):
         gmsh.model.mesh.set_transfinite_curve(curve_18_3_e, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
         gmsh.model.mesh.set_transfinite_curve(curve_20_4_e, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
         gmsh.model.mesh.set_transfinite_curve(curve_22_5_e, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
-        gmsh.model.mesh.set_transfinite_curve(curve_24_6_e, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
+        gmsh.model.mesh.set_transfinite_curve(curve_24_6_e, refinement.wing.n_chord_le, 'Progression', 1.0) # - refinement.wing.coef_le)
 
         gmsh.model.mesh.set_transfinite_curve(curve_13_14_e, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
         gmsh.model.mesh.set_transfinite_curve(curve_12_16_e, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
         gmsh.model.mesh.set_transfinite_curve(curve_11_18_e, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
         gmsh.model.mesh.set_transfinite_curve(curve_10_20_e, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
         gmsh.model.mesh.set_transfinite_curve(curve_9_22_e, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
-        gmsh.model.mesh.set_transfinite_curve(curve_8_24_e, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
+        gmsh.model.mesh.set_transfinite_curve(curve_8_24_e, refinement.wing.n_chord_te, 'Progression', 1.0) # refinement.wing.coef_te)
 
         gmsh.model.mesh.set_transfinite_curve(curve_15_1_e, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
         gmsh.model.mesh.set_transfinite_curve(curve_17_2_e, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
         gmsh.model.mesh.set_transfinite_curve(curve_19_3_e, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
         gmsh.model.mesh.set_transfinite_curve(curve_21_4_e, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
         gmsh.model.mesh.set_transfinite_curve(curve_23_5_e, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
-        gmsh.model.mesh.set_transfinite_curve(curve_25_6_e, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
+        gmsh.model.mesh.set_transfinite_curve(curve_25_6_e, refinement.wing.n_chord_le, 'Progression', 1.0) # - refinement.wing.coef_le)
 
         gmsh.model.mesh.set_transfinite_curve(curve_13_15_e, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
         gmsh.model.mesh.set_transfinite_curve(curve_12_17_e, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
         gmsh.model.mesh.set_transfinite_curve(curve_11_19_e, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
         gmsh.model.mesh.set_transfinite_curve(curve_10_21_e, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
         gmsh.model.mesh.set_transfinite_curve(curve_9_23_e, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
-        gmsh.model.mesh.set_transfinite_curve(curve_8_25_e, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
+        gmsh.model.mesh.set_transfinite_curve(curve_8_25_e, refinement.wing.n_chord_te, 'Progression', 1.0) # refinement.wing.coef_te)
 
         gmsh.model.mesh.set_transfinite_surface(s_1_2_16_14_e)
         gmsh.model.mesh.set_transfinite_surface(s_2_3_18_16_e)
@@ -798,28 +945,28 @@ class Mesh(MESH_ABS):
         gmsh.model.mesh.set_transfinite_curve(curve_18_3_d, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
         gmsh.model.mesh.set_transfinite_curve(curve_20_4_d, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
         gmsh.model.mesh.set_transfinite_curve(curve_22_5_d, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
-        gmsh.model.mesh.set_transfinite_curve(curve_24_6_d, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
+        gmsh.model.mesh.set_transfinite_curve(curve_24_6_d, refinement.wing.n_chord_le, 'Progression', 1.0) # - refinement.wing.coef_le)
 
         gmsh.model.mesh.set_transfinite_curve(curve_13_14_d, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
         gmsh.model.mesh.set_transfinite_curve(curve_12_16_d, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
         gmsh.model.mesh.set_transfinite_curve(curve_11_18_d, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
         gmsh.model.mesh.set_transfinite_curve(curve_10_20_d, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
         gmsh.model.mesh.set_transfinite_curve(curve_9_22_d, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
-        gmsh.model.mesh.set_transfinite_curve(curve_8_24_d, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
+        gmsh.model.mesh.set_transfinite_curve(curve_8_24_d, refinement.wing.n_chord_te, 'Progression', 1.0) # refinement.wing.coef_te)
 
         gmsh.model.mesh.set_transfinite_curve(curve_15_1_d, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
         gmsh.model.mesh.set_transfinite_curve(curve_17_2_d, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
         gmsh.model.mesh.set_transfinite_curve(curve_19_3_d, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
         gmsh.model.mesh.set_transfinite_curve(curve_21_4_d, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
         gmsh.model.mesh.set_transfinite_curve(curve_23_5_d, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
-        gmsh.model.mesh.set_transfinite_curve(curve_25_6_d, refinement.wing.n_chord_le, 'Progression', - refinement.wing.coef_le)
+        gmsh.model.mesh.set_transfinite_curve(curve_25_6_d, refinement.wing.n_chord_le, 'Progression', 1.0) # - refinement.wing.coef_le)
 
         gmsh.model.mesh.set_transfinite_curve(curve_13_15_d, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
         gmsh.model.mesh.set_transfinite_curve(curve_12_17_d, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
         gmsh.model.mesh.set_transfinite_curve(curve_11_19_d, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
         gmsh.model.mesh.set_transfinite_curve(curve_10_21_d, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
         gmsh.model.mesh.set_transfinite_curve(curve_9_23_d, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
-        gmsh.model.mesh.set_transfinite_curve(curve_8_25_d, refinement.wing.n_chord_te, 'Progression', refinement.wing.coef_te)
+        gmsh.model.mesh.set_transfinite_curve(curve_8_25_d, refinement.wing.n_chord_te, 'Progression', 1.0) # refinement.wing.coef_te)
 
         ################################
 
@@ -1087,14 +1234,6 @@ class Mesh(MESH_ABS):
         gmsh.model.mesh.set_recombine(2, s_39_41d_42)
 
         #------------------------------------------#
-        # Smoth                                    #
-        #------------------------------------------#
-        # gmsh.model.mesh.set_smoothing(2, s_43_47_49_e, 10)
-        # gmsh.model.mesh.set_smoothing(2, s_49_47_43_d, 10)
-        # gmsh.model.mesh.set_smoothing(2, s_44_47_49_e, 10)
-        # gmsh.model.mesh.set_smoothing(2, s_49_47_44_d, 10)
-        
-        #------------------------------------------#
         # Create                                   #
         #------------------------------------------#
         gmsh.model.mesh.generate(2)
@@ -1110,26 +1249,19 @@ class Mesh(MESH_ABS):
         #------------------------------------------#
         # Data                                     #
         #------------------------------------------#
+
+        # Vertices
         data = gmsh.model.mesh.get_nodes()
-        self.vertices = data[1].reshape((data[0].size, 3))
+        vertices = data[1].reshape((data[0].size, 3))
 
+        # Faces
         gmsh.model.mesh.create_faces()
-
         data = gmsh.model.mesh.get_all_faces(4)
         faces_4 = data[1].reshape((data[0].size, 4)).astype(int32) - 1
-
         data = gmsh.model.mesh.get_all_faces(3)
         faces_3 = data[1].reshape((data[0].size, 3)).astype(int32) - 1
 
-        self.faces = []
-
-        for face in faces_4:
-            self.faces.append(FaceModel(4, [face[0], face[1], face[2], face[3]]))
-        
-        for face in faces_3:
-            self.faces.append(FaceModel(3, [face[0], face[1], face[2]]))
-        
-
+        # Trailing edge
         trailing_edge_1_e = gmsh.model.add_physical_group(1, [curve_7_8_e])
         trailing_edge_2_e = gmsh.model.add_physical_group(1, [curve_8_9_e])
         trailing_edge_3_e = gmsh.model.add_physical_group(1, [curve_9_10_e])
@@ -1150,49 +1282,116 @@ class Mesh(MESH_ABS):
         trailing_edge_7_d = gmsh.model.add_physical_group(1, [curve_47_49_d])
         trailing_edge_8_d = gmsh.model.add_physical_group(1, [curve_49d_51])
 
-        data_1_e = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_1_e)[0] - 1
-        data_2_e = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_2_e)[0] - 1
-        data_3_e = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_3_e)[0] - 1
-        data_4_e = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_4_e)[0] - 1
-        data_5_e = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_5_e)[0] - 1
-        data_6_e = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_6_e)[0] - 1
-        data_7_e = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_7_e)[0] - 1
-        data_8_e = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_8_e)[0] - 1
 
-        data_1_d = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_1_d)[0] - 1
-        data_2_d = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_2_d)[0] - 1
-        data_3_d = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_3_d)[0] - 1
-        data_4_d = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_4_d)[0] - 1
-        data_5_d = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_5_d)[0] - 1
-        data_6_d = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_6_d)[0] - 1
-        data_7_d = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_7_d)[0] - 1
-        data_8_d = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_8_d)[0] - 1
+        trailing_edge_1_e = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_1_e)[0] - 1
+        trailing_edge_2_e = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_2_e)[0] - 1
+        trailing_edge_3_e = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_3_e)[0] - 1
+        trailing_edge_4_e = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_4_e)[0] - 1
+        trailing_edge_5_e = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_5_e)[0] - 1
+        trailing_edge_6_e = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_6_e)[0] - 1
+        trailing_edge_7_e = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_7_e)[0] - 1
+        trailing_edge_8_e = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_8_e)[0] - 1
 
-        trailing_edge = []
-
-        trailing_edge = trailing_edge + self.__vertices_pairs(data_1_e)
-        trailing_edge = trailing_edge + self.__vertices_pairs(data_2_e)
-        trailing_edge = trailing_edge + self.__vertices_pairs(data_3_e)
-        trailing_edge = trailing_edge + self.__vertices_pairs(data_4_e)
-        trailing_edge = trailing_edge + self.__vertices_pairs(data_5_e)
-        trailing_edge = trailing_edge + self.__vertices_pairs(data_6_e)
-        trailing_edge = trailing_edge + self.__vertices_pairs(data_7_e)
-        trailing_edge = trailing_edge + self.__vertices_pairs(data_8_e)
-
-        trailing_edge = trailing_edge + self.__vertices_pairs(data_1_d)
-        trailing_edge = trailing_edge + self.__vertices_pairs(data_2_d)
-        trailing_edge = trailing_edge + self.__vertices_pairs(data_3_d)
-        trailing_edge = trailing_edge + self.__vertices_pairs(data_4_d)
-        trailing_edge = trailing_edge + self.__vertices_pairs(data_5_d)
-        trailing_edge = trailing_edge + self.__vertices_pairs(data_6_d)
-        trailing_edge = trailing_edge + self.__vertices_pairs(data_7_d)
-        trailing_edge = trailing_edge + self.__vertices_pairs(data_8_d)
-
-        self.trailing_edge = asarray(trailing_edge)
+        trailing_edge_1_d = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_1_d)[0] - 1
+        trailing_edge_2_d = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_2_d)[0] - 1
+        trailing_edge_3_d = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_3_d)[0] - 1
+        trailing_edge_4_d = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_4_d)[0] - 1
+        trailing_edge_5_d = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_5_d)[0] - 1
+        trailing_edge_6_d = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_6_d)[0] - 1
+        trailing_edge_7_d = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_7_d)[0] - 1
+        trailing_edge_8_d = gmsh.model.mesh.get_nodes_for_physical_group(1, trailing_edge_8_d)[0] - 1
 
         #------------------------------------------#
         # End                                      #
         #------------------------------------------#
         gmsh.finalize()
+
+        return [
+            vertices,
+            faces_3,
+            faces_4,
+            [
+                trailing_edge_1_e,
+                trailing_edge_2_e,
+                trailing_edge_3_e,
+                trailing_edge_4_e,
+                trailing_edge_5_e,
+                trailing_edge_6_e,
+                trailing_edge_7_e,
+                trailing_edge_8_e,
+                trailing_edge_1_d,
+                trailing_edge_2_d,
+                trailing_edge_3_d,
+                trailing_edge_4_d,
+                trailing_edge_5_d,
+                trailing_edge_6_d,
+                trailing_edge_7_d,
+                trailing_edge_8_d,
+            ]
+        ]
+
+    def __correct_vertices_ids(self, vertices: ndarray, faces3: ndarray, faces4: ndarray, trailing_edge_list: List[ndarray]):
+    
+        # Saída
+        vertices_out = []
+        faces_out = []
+        trailing_edge_out = []
+
+        # Encontre os ids dos vértices utilizados na malha
+        vertices_ids = []
+
+        for id in range(vertices.shape[0]):
+
+            is_in_f3 = id in faces3[:, 0] or id in faces3[:, 1] or id in faces3[:, 2]
+            is_in_f4 = id in faces4[:, 0] or id in faces4[:, 1] or id in faces4[:, 2] or id in faces4[:, 3]
+
+            if is_in_f3 or is_in_f4:
+                vertices_ids.append(id)
         
-        return
+        vertices_ids = asarray(vertices_ids)
+
+        # Corrige os valores dos vértices
+        for id in vertices_ids:
+            vertices_out.append(vertices[id, :])
+
+        # Corrige os valores das faces
+        for face in faces4:
+            id1 = int(argwhere(face[0] == vertices_ids)[0])
+            id2 = int(argwhere(face[1] == vertices_ids)[0])
+            id3 = int(argwhere(face[2] == vertices_ids)[0])
+            id4 = int(argwhere(face[3] == vertices_ids)[0])
+            faces_out.append([4, id1, id2, id3, id4])
+        
+        for face in faces3:
+            id1 = int(argwhere(face[0] == vertices_ids)[0])
+            id2 = int(argwhere(face[1] == vertices_ids)[0])
+            id3 = int(argwhere(face[2] == vertices_ids)[0])
+            faces_out.append([3, id1, id2, id3, -1])
+        
+        # Corrige os valores do bordo de fuga
+        for points in trailing_edge_list:
+
+            d1 = norm(vertices[points[0], :] - vertices[points[2], :])
+            d2 = norm(vertices[points[0], :] - vertices[points[-1], :])
+
+            if d1 < d2:
+                points_ordered = points[2:]
+            else:
+                points_ordered = flip(points[2:])
+            
+            new_points = [points[0]]
+            for i in range(len(points_ordered)):
+                new_points.append(points_ordered[i])
+            new_points.append(points[1])
+            
+            for i in range(len(new_points) - 1):
+                id1 = int(argwhere(new_points[i] == vertices_ids)[0])
+                id2 = int(argwhere(new_points[i + 1] == vertices_ids)[0])
+                trailing_edge_out.append([id1, id2])
+        
+        # Converte para numpy array
+        vertices_out = asarray(vertices_out)
+        faces_out = asarray(faces_out)
+        trailing_edge_out = asarray(trailing_edge_out)
+        
+        return [vertices_out, faces_out, trailing_edge_out]

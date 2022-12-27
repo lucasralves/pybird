@@ -1,14 +1,13 @@
 from typing import List
-from numpy import array, cross, dot, flip, loadtxt, zeros, ndarray
+from numpy import argmax, array, cross, dot, flip, loadtxt, zeros, ndarray
 from numpy.linalg import norm
-from pytools import argmax
 
 from pybird.modules.geo.utils import vector
 from pybird.modules.geo.utils.curve import interpolate_2D, interpolate_3D
 
 def process_section(file: str, v1: ndarray, v2: ndarray, x: ndarray, z: ndarray, n: int) -> List:
 
-    nFoil = 300
+    nFoil = 400
 
     # Load airfoil
     foil = interpolate_2D(loadtxt(file), nFoil)

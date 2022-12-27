@@ -106,8 +106,8 @@ class Geometry(GEOMETRY_ABS):
 
         # Sections
         self.p14e, self.p15e, self.curve13e, self.curve14e, self.curve15e, self.curve16e = sections.process_section(self.__data.wing.foils[0], self.p1e, self.p13e, leftSystem.x1, leftSystem.z1, n=100)
-
         p16e1, p17e1, curve19e1, curve20e1, curve21e1, curve22e1 = sections.process_section(self.__data.wing.foils[0], self.p2e, self.p12e, leftSystem.x1, leftSystem.z1, n=100)
+        
         p16e2, p17e2, curve19e2, curve20e2, curve21e2, curve22e2 = sections.process_section(self.__data.wing.foils[1], self.p2e, self.p12e, leftSystem.x1, leftSystem.z1, n=100)
         self.p16e, self.p17e = 0.5 * (p16e1 + p16e2), 0.5 * (p17e1 + p17e2)
         self.curve19e, self.curve20e = 0.5 * (curve19e1 + curve19e2), 0.5 * (curve20e1 + curve20e2)
@@ -226,7 +226,7 @@ class Geometry(GEOMETRY_ABS):
         p10_11_aux = points.p10_11_aux(self.__data.wing, rightSystem, p4d, p3d)
         aux3d = points.aux3(self.__data.wing, rightSystem, p7d, p10_11_aux)
         p10d = points.p10(self.__data.wing, p10_11_aux, p7d, aux3d)
-        tp8d = 0.2
+        tp8d = 0.08
         p8d = points.p8(p7d, aux3d, p10_11_aux, tp8d)
         tp9d = 0.6
         p9d = points.p9(p7d, aux3d, p10_11_aux, tp9d)
