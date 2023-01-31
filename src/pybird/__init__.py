@@ -3,8 +3,8 @@ from pybird.modules.geo.geo import Geometry as _Geo
 from pybird.modules.mesh.mesh import Mesh as _Mesh
 from pybird.modules.view.view import View as _View
 
-from pybird.models.refinement_model import RefinementModel
-
+from pybird.models import refinement_model as refinement
+from pybird.models.enums import TailShape
 
 def init() -> None:
     """
@@ -46,7 +46,7 @@ def save(file: str) -> None:
     _case_model.to_file(model, file)
     return
 
-def build(ref: RefinementModel, view: bool = False) -> None:
+def build(ref: refinement.model, view: bool = False) -> None:
     """
     pybird.build(ref, view=True)
 

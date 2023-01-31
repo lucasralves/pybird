@@ -7,7 +7,7 @@ from math import ceil, fabs, sqrt, pi
 import gmsh
 
 from pybird.modules.geo.geo import Geometry
-from pybird.models.refinement_model import RefinementModel
+from pybird.models import refinement_model as refinement
 
 
 class MESH_ABS(ABC):
@@ -26,7 +26,7 @@ class Mesh(MESH_ABS):
         self.__geo = geo
         return
 
-    def build(self, refinement: RefinementModel, view: bool) -> None:
+    def build(self, refinement: refinement.model, view: bool) -> None:
 
         vertices, faces3, faces4, trailing_edge_list = self.__create_mesh(refinement, view)
         
@@ -47,7 +47,7 @@ class Mesh(MESH_ABS):
 
         return l
 
-    def __create_mesh(self, refinement: RefinementModel, view: bool) -> List:
+    def __create_mesh(self, refinement: refinement.model, view: bool) -> List:
 
         gmsh.initialize()
         gmsh.option.setNumber('General.Verbosity', 1)
