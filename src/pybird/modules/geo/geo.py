@@ -1,14 +1,14 @@
 from abc import ABC
 from numpy import array, linspace, zeros_like, ndarray
 
-from pybird.modules.geo.models.external import *
+from pybird.models.geo_model import GeoModel
+from pybird.models.enums import TailShape
 from pybird.modules.geo.utils.system import BaseSystem, TailSystem, WingSystem
 from pybird.modules.geo.utils import points, sections, surface, bezier
-from pybird.modules.helpers import warnings
 
 class GEOMETRY_ABS(ABC):
     
-    def __init__(self, data: GeoModel, verbose: bool) -> None:
+    def __init__(self, data: GeoModel) -> None:
         """Stores the geometry model"""
         pass
 
@@ -18,14 +18,12 @@ class GEOMETRY_ABS(ABC):
 
 class Geometry(GEOMETRY_ABS):
     
-    def __init__(self, data: GeoModel, verbose: bool) -> None:
+    def __init__(self, data: GeoModel) -> None:
         self.__data = data
-        self.__verbose = verbose
         self.__base_system = BaseSystem()
         return
     
     def build(self) -> None:
-        warnings.title('Building geometry', self.__verbose)
         self.__build_wing()
         self.__build_body()
         self.__build_head()

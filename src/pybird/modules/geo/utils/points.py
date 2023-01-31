@@ -4,9 +4,13 @@ from numpy import cross, deg2rad, dot, linspace, zeros, ndarray
 from numpy.linalg import norm
 from scipy.spatial.transform import Rotation as R
 
+from pybird.models.wing_model import WingModel
+from pybird.models.body_model import BodyModel
+from pybird.models.head_model import HeadModel
+from pybird.models.tail_model import TailModel
+from pybird.models.enums import TailShape
 from pybird.modules.geo.utils.system import BaseSystem, TailSystem, WingSystem
-from pybird.modules.geo.models.external import *
-from pybird.modules.geo.models.convert import deg2RadConst
+from pybird.models.convert import deg2RadConst
 from pybird.modules.geo.utils import vector, bezier, circle
 
 def l1(wing: WingModel, system: WingSystem, p0: ndarray) -> ndarray:

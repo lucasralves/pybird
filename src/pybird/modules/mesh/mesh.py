@@ -1,14 +1,14 @@
 import sys
 from abc import ABC
 from typing import List
-from numpy import argwhere, ndarray, int32, asarray, cross, empty, double, dot, flip, copy
+from numpy import argwhere, ndarray, int32, asarray, cross, empty, double, dot, flip, zeros
 from numpy.linalg import norm
-from math import ceil, fabs, sqrt, pi, sin, acos
+from math import ceil, fabs, sqrt, pi
 import gmsh
 
 from pybird.modules.geo.geo import Geometry
-from pybird.modules.helpers import warnings
-from pybird.modules.mesh.models.refinement_model import RefinementModel
+from pybird.models.refinement_model import RefinementModel
+
 
 class MESH_ABS(ABC):
 
@@ -22,14 +22,13 @@ class MESH_ABS(ABC):
 
 class Mesh(MESH_ABS):
 
-    def __init__(self, geo: Geometry, verbose: bool) -> None:
+    def __init__(self, geo: Geometry) -> None:
         self.__geo = geo
-        self.__verbose = verbose
         return
 
-    def build(self, refinement: RefinementModel) -> None:
+    def build(self, refinement: RefinementModel, view: bool) -> None:
 
-        vertices, faces3, faces4, trailing_edge_list = self.__create_mesh(refinement)
+        vertices, faces3, faces4, trailing_edge_list = self.__create_mesh(refinement, view)
         
         self.vertices: ndarray = None
         self.faces: ndarray = None
@@ -37,157 +36,7 @@ class Mesh(MESH_ABS):
 
         self.vertices, self.faces, self.trailing_edge = self.__correct_vertices_ids(vertices, faces3, faces4, trailing_edge_list)
 
-        self.nf = len(self.faces)
-        self.nv = self.vertices.shape[0]
-        self.nte_wake = self.trailing_edge.shape[0]
-
-        # Find trailing edge faces
-        self.trailing_edge_faces = empty((self.nte_wake, 2), dtype=int32)
-
-        for i in range(self.nte_wake):
-            check1 = (self.faces[:, 1] == self.trailing_edge[i, 0]) | (self.faces[:, 2] == self.trailing_edge[i, 0]) | (self.faces[:, 3] == self.trailing_edge[i, 0]) | (self.faces[:, 4] == self.trailing_edge[i, 0])
-            check2 = (self.faces[:, 1] == self.trailing_edge[i, 1]) | (self.faces[:, 2] == self.trailing_edge[i, 1]) | (self.faces[:, 3] == self.trailing_edge[i, 1]) | (self.faces[:, 4] == self.trailing_edge[i, 1])
-            index = argwhere(check1 & check2)
-            self.trailing_edge_faces[i, 0] = index[0][0]
-            self.trailing_edge_faces[i, 1] = index[1][0]
-        
-        self.p_avg = empty((self.nf, 3), dtype=double)
-        self.p_ctrl = empty((self.nf, 3), dtype=double)
-        self.e1 = empty((self.nf, 3), dtype=double)
-        self.e2 = empty((self.nf, 3), dtype=double)
-        self.e3 = empty((self.nf, 3), dtype=double)
-        self.p1 = empty((self.nf, 2), dtype=double)
-        self.p2 = empty((self.nf, 2), dtype=double)
-        self.p3 = empty((self.nf, 2), dtype=double)
-        self.p4 = empty((self.nf, 2), dtype=double)
-        self.area = empty(self.nf, dtype=double)
-        self.max_distance = empty(self.nf, dtype=double)
-        self.scale_factor = empty(self.nf, dtype=double)
-
-        self.__calculate_faces_params()
-
-        self.nv_wake: int = -1
-        self.nw_wake: int = -1
-        self.wake_ids: ndarray = None
-        self.vertices_wake: ndarray = None
-
         return
-
-    def __calculate_faces_params(self) -> None:
-
-        p1_local = empty(2, dtype=double)
-        p2_local = empty(2, dtype=double)
-        p3_local = empty(2, dtype=double)
-        p4_local = empty(2, dtype=double)
-
-        for i in range(self.nf):
-
-            # Points
-            p1 = self.vertices[self.faces[i, 1], :]
-            p2 = self.vertices[self.faces[i, 2], :]
-            p3 = self.vertices[self.faces[i, 3], :]
-
-            if self.faces[i, 0] == 4:
-                p4 = self.vertices[self.faces[i, 4], :]
-            
-            # Face center
-            if self.faces[i, 0] == 3:
-                p_avg = (1 / 3) * (p1 + p2 + p3)
-            else:
-                p_avg = 0.25 * (p1 + p2 + p3 + p4)
-
-            # Base vectors
-            # e3
-            if self.faces[i, 0] == 4:
-                v1 = p2 - p4
-                v2 = p3 - p1
-            else:
-                v1 = p2 - p1
-                v2 = p3 - p1
-            
-            n = cross(v1, v2)
-            n_norm = norm(n)
-
-            e3 = n / n_norm
-
-            # e1
-            n[:] = 1.0
-
-            if fabs(e3[0] > 1e-2):
-                n[0] = - (e3[1] * n[1] + e3[2] * n[2]) / e3[0]
-            else:
-                if fabs(e3[1] > 1e-2):
-                    n[1] = - (e3[0] * n[0] + e3[2] * n[2]) / e3[1]
-                else:
-                    n[2] = - (e3[1] * n[1] + e3[0] * n[0]) / e3[2]
-            
-            n_norm = norm(n)
-
-            e1 = n / n_norm
-
-            # e2
-            e2 = cross(e3, e1)
-
-            # Control point
-            p_ctrl = p_avg + e3 * 1e-12
-
-            # Local points
-            v1 = p1 - p_avg
-            v2 = p2 - p_avg
-            v3 = p3 - p_avg
-
-            p1_local[0] = dot(e1, v1)
-            p1_local[1] = dot(e2, v1)
-
-            p2_local[0] = dot(e1, v2)
-            p2_local[1] = dot(e2, v2)
-
-            p3_local[0] = dot(e1, v3)
-            p3_local[1] = dot(e2, v3)
-
-            if self.faces[i, 0] == 4:
-                v4 = p4 - p_avg
-
-                p4_local[0] = dot(e1, v4)
-                p4_local[1] = dot(e2, v4)
-
-            if self.faces[i, 0] == 4:
-                area = self.__triangule_area(p1, p2, p3) + self.__triangule_area(p1, p3, p4)
-            else:
-                area = self.__triangule_area(p1, p2, p3)
-
-            max_distance = 10 * 2 * sqrt(area / pi)
-
-            # Min. distance
-            min_list = [
-                norm(v1 + dot(v1, v2 - v1) * (v2 - v1) / norm(v2 - v1)),
-                norm(v2 + dot(v2, v3 - v2) * (v3 - v2) / norm(v3 - v2)),
-                norm(v3 + dot(v3, v4 - v3) * (v4 - v3) / norm(v4 - v3)),
-            ]
-            
-            if self.faces[i, 0] == 4:
-                min_list.append(norm(v4 + dot(v4, v1 - v4) * (v1 - v4) / norm(v1 - v4)))
-            
-            scale_factor = min(min_list)
-
-            # Save
-            self.p_avg[i, :] = p_avg[:]
-            self.p_ctrl[i, :] = p_ctrl[:]
-            self.e1[i, :] = e1[:]
-            self.e2[i, :] = e2[:]
-            self.e3[i, :] = e3[:]
-            self.p1[i, :] = p1_local[:]
-            self.p2[i, :] = p2_local[:]
-            self.p3[i, :] = p3_local[:]
-            self.p4[i, :] = p4_local[:]
-            self.area[i] = area
-            self.max_distance[i] = max_distance
-            self.scale_factor[i] = scale_factor
-        
-        return
-    
-    def __triangule_area(self, p1: ndarray, p2: ndarray, p3: ndarray) -> float:
-        return 0.5 * fabs(p1[0] * p2[1] + p2[0] * p3[1] + p3[0] * p1[1] - p1[1] * p2[0] - p2[1] * p3[0] - p3[1] * p1[0])
 
     def __flip(self, a: List[int]) -> List[int]:
 
@@ -198,9 +47,7 @@ class Mesh(MESH_ABS):
 
         return l
 
-    def __create_mesh(self, refinement: RefinementModel) -> List:
-
-        warnings.title('Building mesh', self.__verbose)
+    def __create_mesh(self, refinement: RefinementModel, view: bool) -> List:
 
         gmsh.initialize()
         gmsh.option.setNumber('General.Verbosity', 1)
@@ -1241,10 +1088,10 @@ class Mesh(MESH_ABS):
         #------------------------------------------#
         # View                                     #
         #------------------------------------------#
-        # if "-nopopup" not in sys.argv:
-        #     gmsh.fltk.initialize()
-        #     while gmsh.fltk.isAvailable():
-        #         gmsh.fltk.wait()
+        if "-nopopup" not in sys.argv and view:
+            gmsh.fltk.initialize()
+            while gmsh.fltk.isAvailable():
+                gmsh.fltk.wait()
         
         #------------------------------------------#
         # Data                                     #
