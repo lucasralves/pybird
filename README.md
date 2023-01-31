@@ -1,6 +1,6 @@
 # pybird
 
-A package that creates generic bird geometries and meshes to be used by panel method codes.
+A package that creates generic bird geometries and meshes to be used by panel codes.
 
 ## How to install:
 
